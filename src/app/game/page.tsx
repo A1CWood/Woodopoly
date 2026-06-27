@@ -9,6 +9,7 @@ import GameLog from '@/components/GameLog';
 import PlayerHand from '@/components/PlayerHand';
 import CardPopup from '@/components/CardPopup';
 import OptionsMenu from '@/components/OptionsMenu';
+import TradeOfferModal from '@/components/TradeOfferModal';
 
 const PANEL_W = 268;
 const BOARD_PX = 620;
@@ -114,6 +115,7 @@ export default function GamePage() {
     <div className="fixed inset-0 bg-gray-950 overflow-hidden">
       {/* Full-screen overlays */}
       <CardPopup />
+      <TradeOfferModal />
       <OptionsMenu />
 
       {/* Pannable / zoomable board layer (z-0) */}
@@ -169,7 +171,7 @@ export default function GamePage() {
         className="absolute top-0 right-0 bottom-0 z-20 flex flex-col border-l border-gray-800 bg-gray-950"
         style={{ width: PANEL_W }}
       >
-        <div className="flex-1 flex flex-col gap-3 p-3 overflow-y-auto pt-14">
+        <div className="flex-1 flex flex-col gap-3 p-3 overflow-y-auto">
           <ActionPanel />
           <GameLog />
         </div>

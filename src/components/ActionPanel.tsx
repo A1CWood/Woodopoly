@@ -5,6 +5,7 @@ import { useGameStore } from '@/lib/gameStore';
 import { BOARD_SPACES, COLOR_GROUPS, RAILROAD_IDS, UTILITY_IDS } from '@/lib/boardData';
 import type { ColorGroup } from '@/types/game';
 import { COLOR_HEX } from '@/lib/boardData';
+import TradeWindow from './TradeWindow';
 
 function DieFace({ value }: { value: number }) {
   const dots: Record<number, [number, number][]> = {
@@ -23,6 +24,33 @@ function DieFace({ value }: { value: number }) {
         ))}
       </svg>
     </div>
+  );
+}
+
+function TradeButton({
+  pendingTrade,
+  fromMe,
+  onOpen,
+}: {
+  pendingTrade: boolean;
+  fromMe: boolean;
+  onOpen: () => void;
+}) {
+  if (pendingTrade && fromMe) {
+    return (
+      <div className="text-[10px] text-yellow-600 text-center italic">
+        Trade offer pending — waiting for response
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={onOpen}
+      disabled={pendingTrade}
+      className="bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
+    >
+      ⇄ Propose Trade
+    </button>
   );
 }
 
@@ -122,11 +150,13 @@ function BuildSection() {
 export default function ActionPanel() {
   const {
     players, currentPlayerIdx, phase, lastRoll, pendingPurchaseId,
-    doublesStreak, pendingIncomeTax,
+    doublesStreak, pendingIncomeTax, pendingBankruptcy, spaceStates, pendingTrade,
     rollDice, buyProperty, declinePurchase, endTurn, resetGame,
     payJailFine, useGetOutOfJailFree,
-    payIncomeTaxFlat, payIncomeTaxPercent,
+    payIncomeTaxFlat, payIncomeTaxPercent, declareBankruptcy,
   } = useGameStore();
+
+  const [tradeOpen, setTradeOpen] = useState(false);
 
   const current = players[currentPlayerIdx];
   if (!current) return null;
@@ -134,6 +164,11 @@ export default function ActionPanel() {
   const pendingSpace = pendingPurchaseId !== null ? BOARD_SPACES[pendingPurchaseId] : null;
   const canAfford = pendingSpace?.price ? current.money >= pendingSpace.price : false;
   const isDoublesTurn = doublesStreak > 0;
+
+  // For the "Declare Bankruptcy" button: check if any assets remain
+  const canStillRaiseMoney = pendingBankruptcy && current.propertyIds.some(
+    (pid) => (spaceStates[pid]?.houses ?? 0) > 0 || !spaceStates[pid]?.isMortgaged
+  );
 
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex flex-col gap-3">
@@ -198,6 +233,7 @@ export default function ActionPanel() {
       {phase === 'pre_roll' && !current.inJail && (
         <>
           <BuildSection />
+          <TradeButton pendingTrade={!!pendingTrade} fromMe={pendingTrade?.fromPlayerId === current.id} onOpen={() => setTradeOpen(true)} />
           <button
             onClick={rollDice}
             className="bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
@@ -217,70 +253,93 @@ export default function ActionPanel() {
         <div className="flex flex-col gap-2">
           <BuildSection />
 
-          {/* Income Tax choice */}
-          {pendingIncomeTax && (
-            <div className="bg-gray-800 rounded-lg p-3 flex flex-col gap-2">
-              <div className="text-red-400 text-xs font-semibold">🌲 Income Tax</div>
-              <div className="text-gray-300 text-xs">
-                Choose how to pay:
+          {pendingBankruptcy ? (
+            /* ── In-debt flow ── */
+            <>
+              <div className="bg-red-950 border border-red-800 rounded-lg p-3 flex flex-col gap-1">
+                <div className="text-red-400 font-bold text-xs">⚠ In Debt — ${Math.abs(current.money)}</div>
+                <div className="text-gray-400 text-[10px] leading-relaxed">
+                  {canStillRaiseMoney
+                    ? 'Hover your properties to mortgage them, or sell houses above to raise funds.'
+                    : 'No assets remain. You must declare bankruptcy.'}
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={payIncomeTaxFlat}
-                  className="flex-1 bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
-                >
-                  Pay $200 flat
-                </button>
-                <button
-                  onClick={payIncomeTaxPercent}
-                  className="flex-1 bg-orange-900 hover:bg-orange-800 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
-                >
-                  Pay 10%<br />
-                  <span className="font-normal">(${Math.floor(current.money * 0.1)})</span>
-                </button>
-              </div>
-            </div>
-          )}
+              <button
+                onClick={declareBankruptcy}
+                className="bg-red-900 hover:bg-red-800 text-white font-bold py-2.5 px-4 rounded-lg transition-colors text-sm"
+              >
+                Declare Bankruptcy
+              </button>
+            </>
+          ) : (
+            /* ── Normal post-roll flow ── */
+            <>
+              <TradeButton pendingTrade={!!pendingTrade} fromMe={pendingTrade?.fromPlayerId === current.id} onOpen={() => setTradeOpen(true)} />
 
-          {/* Property purchase */}
-          {pendingSpace && !pendingIncomeTax && (
-            <div className="bg-gray-800 rounded-lg p-3 flex flex-col gap-2">
-              <div className="text-white text-sm">
-                <span className="font-bold">{pendingSpace.name}</span>
-                <span className="text-gray-400"> is for sale!</span>
-              </div>
-              {pendingSpace.price && (
-                <div className="text-yellow-400 font-mono text-sm">Price: ${pendingSpace.price}</div>
+              {/* Income Tax choice */}
+              {pendingIncomeTax && (
+                <div className="bg-gray-800 rounded-lg p-3 flex flex-col gap-2">
+                  <div className="text-red-400 text-xs font-semibold">🌲 Income Tax</div>
+                  <div className="text-gray-300 text-xs">Choose how to pay:</div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={payIncomeTaxFlat}
+                      className="flex-1 bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
+                    >
+                      Pay $200 flat
+                    </button>
+                    <button
+                      onClick={payIncomeTaxPercent}
+                      className="flex-1 bg-orange-900 hover:bg-orange-800 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
+                    >
+                      Pay 10%<br />
+                      <span className="font-normal">(${Math.floor(current.money * 0.1)})</span>
+                    </button>
+                  </div>
+                </div>
               )}
-              <div className="flex gap-2">
-                <button
-                  onClick={buyProperty}
-                  disabled={!canAfford}
-                  className="flex-1 bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 text-gray-900 font-bold py-2 px-3 rounded-lg transition-colors text-sm"
-                >
-                  {canAfford ? 'Buy' : "Can't Afford"}
-                </button>
-                <button
-                  onClick={declinePurchase}
-                  className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm"
-                >
-                  Skip
-                </button>
-              </div>
-            </div>
-          )}
 
-          {!pendingIncomeTax && (
-            <button
-              onClick={isDoublesTurn ? rollDice : endTurn}
-              className={`font-bold py-2.5 px-4 rounded-lg transition-colors text-white ${
-                isDoublesTurn
-                  ? 'bg-yellow-600 hover:bg-yellow-500'
-                  : 'bg-blue-600 hover:bg-blue-500'
-              }`}
-            >
-              {isDoublesTurn ? 'Roll Again! 🎲' : 'End Turn →'}
-            </button>
+              {/* Property purchase */}
+              {pendingSpace && !pendingIncomeTax && (
+                <div className="bg-gray-800 rounded-lg p-3 flex flex-col gap-2">
+                  <div className="text-white text-sm">
+                    <span className="font-bold">{pendingSpace.name}</span>
+                    <span className="text-gray-400"> is for sale!</span>
+                  </div>
+                  {pendingSpace.price && (
+                    <div className="text-yellow-400 font-mono text-sm">Price: ${pendingSpace.price}</div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={buyProperty}
+                      disabled={!canAfford}
+                      className="flex-1 bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 text-gray-900 font-bold py-2 px-3 rounded-lg transition-colors text-sm"
+                    >
+                      {canAfford ? 'Buy' : "Can't Afford"}
+                    </button>
+                    <button
+                      onClick={declinePurchase}
+                      className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!pendingIncomeTax && (
+                <button
+                  onClick={isDoublesTurn ? rollDice : endTurn}
+                  className={`font-bold py-2.5 px-4 rounded-lg transition-colors text-white ${
+                    isDoublesTurn
+                      ? 'bg-yellow-600 hover:bg-yellow-500'
+                      : 'bg-blue-600 hover:bg-blue-500'
+                  }`}
+                >
+                  {isDoublesTurn ? 'Roll Again! 🎲' : 'End Turn →'}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -297,6 +356,8 @@ export default function ActionPanel() {
           </button>
         </div>
       )}
+
+      <TradeWindow open={tradeOpen} onClose={() => setTradeOpen(false)} />
     </div>
   );
 }

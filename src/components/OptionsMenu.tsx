@@ -24,7 +24,7 @@ export default function OptionsMenu() {
     <>
       <button
         onClick={handleOpen}
-        className="fixed top-3 right-3 z-40 bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-600 transition-colors shadow-lg"
+        className="fixed bottom-3 left-3 z-40 bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-600 transition-colors shadow-lg"
         title="Options"
       >
         ⚙ Options
