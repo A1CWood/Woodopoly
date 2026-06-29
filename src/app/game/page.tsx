@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGameStore } from '@/lib/gameStore';
+import { useLobbyStore } from '@/lib/lobbyStore';
+import { supabase } from '@/lib/supabase';
 import Board from '@/components/Board';
 import ActionPanel from '@/components/ActionPanel';
 import GameLog from '@/components/GameLog';
@@ -27,8 +29,30 @@ export default function GamePage() {
   const boardWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!gameStarted) router.replace('/');
-  }, [gameStarted, router]);
+    if (gameStarted) return;
+
+    // Attempt reconnect via localStorage (lobbyStore hasn't called init() yet after a hard refresh)
+    const storedRoomId = typeof window !== 'undefined' ? localStorage.getItem('woodopoly-room-id') : null;
+    const storedPlayerId = typeof window !== 'undefined' ? localStorage.getItem('woodopoly-player-id') : null;
+
+    if (!storedRoomId) { router.replace('/'); return; }
+
+    supabase
+      .from('game_rooms')
+      .select('game_state, status')
+      .eq('id', storedRoomId)
+      .single()
+      .then(({ data }) => {
+        if (data?.status === 'playing' && data.game_state) {
+          useGameStore.getState().setRoomInfo(storedRoomId, storedPlayerId ?? '');
+          useGameStore.getState().syncFromRemote(data.game_state);
+          useLobbyStore.getState()._subscribeToRoom(storedRoomId);
+        } else {
+          router.replace('/');
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameStarted]);
 
   const applyTransform = useCallback(() => {
     if (!boardInnerRef.current) return;

@@ -151,7 +151,7 @@ export default function ActionPanel() {
   const {
     players, currentPlayerIdx, phase, lastRoll, pendingPurchaseId,
     doublesStreak, pendingIncomeTax, pendingBankruptcy, spaceStates, pendingTrade,
-    setupRolls, setupRollCurrentIdx, setupRollCandidateIds,
+    setupRolls, setupRollCurrentIdx, setupRollCandidateIds, myPlayerId,
     rollForFirst, rollDice, buyProperty, declinePurchase, endTurn, resetGame,
     payJailFine, useGetOutOfJailFree,
     payIncomeTaxFlat, payIncomeTaxPercent, declareBankruptcy,
@@ -165,6 +165,16 @@ export default function ActionPanel() {
   const pendingSpace = pendingPurchaseId !== null ? BOARD_SPACES[pendingPurchaseId] : null;
   const canAfford = pendingSpace?.price ? current.money >= pendingSpace.price : false;
   const isDoublesTurn = doublesStreak > 0;
+
+  // Turn gating: in multiplayer, only the active player can take actions.
+  // myPlayerId is null in single-player mode → always allow.
+  const isMySetupTurn =
+    phase === 'setup_roll' &&
+    (!myPlayerId || setupRollCandidateIds[setupRollCurrentIdx] === myPlayerId);
+  const isMyTurn =
+    phase !== 'setup_roll' &&
+    (!myPlayerId || current.id === myPlayerId);
+  const canAct = phase === 'setup_roll' ? isMySetupTurn : isMyTurn;
 
   // For the "Declare Bankruptcy" button: check if any assets remain
   const canStillRaiseMoney = pendingBankruptcy && current.propertyIds.some(
@@ -213,12 +223,18 @@ export default function ActionPanel() {
               </div>
             )}
             {rollingPlayer && (
-              <button
-                onClick={rollForFirst}
-                className="bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
-              >
-                {rollingPlayer.name}: Roll 🎲
-              </button>
+              isMySetupTurn ? (
+                <button
+                  onClick={rollForFirst}
+                  className="bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
+                >
+                  {rollingPlayer.name}: Roll 🎲
+                </button>
+              ) : (
+                <div className="text-center text-gray-500 text-xs italic py-1">
+                  Waiting for {rollingPlayer.name} to roll…
+                </div>
+              )
             )}
           </div>
         );
@@ -252,6 +268,13 @@ export default function ActionPanel() {
         </div>
       )}
 
+      {/* Not-your-turn banner (multiplayer) */}
+      {phase !== 'setup_roll' && phase !== 'game_over' && !canAct && (
+        <div className="text-center text-gray-500 text-xs italic py-1 border border-gray-700 rounded-lg px-2">
+          Waiting for {current.name}&apos;s move…
+        </div>
+      )}
+
       {/* Jail options */}
       {phase === 'pre_roll' && current.inJail && (
         <div className="flex flex-col gap-2">
@@ -260,7 +283,8 @@ export default function ActionPanel() {
             {current.money >= 50 && (
               <button
                 onClick={payJailFine}
-                className="flex-1 bg-yellow-700 hover:bg-yellow-600 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
+                disabled={!canAct}
+                className="flex-1 bg-yellow-700 hover:bg-yellow-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
               >
                 Pay $50 Bail
               </button>
@@ -268,7 +292,8 @@ export default function ActionPanel() {
             {current.getOutOfJailFreeCount > 0 && (
               <button
                 onClick={useGetOutOfJailFree}
-                className="flex-1 bg-amber-700 hover:bg-amber-600 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
+                disabled={!canAct}
+                className="flex-1 bg-amber-700 hover:bg-amber-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
               >
                 Use 🍃 Card
               </button>
@@ -276,7 +301,8 @@ export default function ActionPanel() {
           </div>
           <button
             onClick={rollDice}
-            className="bg-green-700 hover:bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
+            disabled={!canAct}
+            className="bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
           >
             Roll for Doubles 🎲
           </button>
@@ -290,7 +316,8 @@ export default function ActionPanel() {
           <TradeButton pendingTrade={!!pendingTrade} fromMe={pendingTrade?.fromPlayerId === current.id} onOpen={() => setTradeOpen(true)} />
           <button
             onClick={rollDice}
-            className="bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
+            disabled={!canAct}
+            className="bg-green-600 hover:bg-green-500 active:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
           >
             Roll Dice 🎲
           </button>
@@ -320,7 +347,8 @@ export default function ActionPanel() {
               </div>
               <button
                 onClick={declareBankruptcy}
-                className="bg-red-900 hover:bg-red-800 text-white font-bold py-2.5 px-4 rounded-lg transition-colors text-sm"
+                disabled={!canAct}
+                className="bg-red-900 hover:bg-red-800 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2.5 px-4 rounded-lg transition-colors text-sm"
               >
                 Declare Bankruptcy
               </button>
@@ -338,13 +366,15 @@ export default function ActionPanel() {
                   <div className="flex gap-2">
                     <button
                       onClick={payIncomeTaxFlat}
-                      className="flex-1 bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
+                      disabled={!canAct}
+                      className="flex-1 bg-red-900 hover:bg-red-800 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
                     >
                       Pay $200 flat
                     </button>
                     <button
                       onClick={payIncomeTaxPercent}
-                      className="flex-1 bg-orange-900 hover:bg-orange-800 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
+                      disabled={!canAct}
+                      className="flex-1 bg-orange-900 hover:bg-orange-800 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2 px-2 rounded-lg text-xs transition-colors"
                     >
                       Pay 10%<br />
                       <span className="font-normal">(${Math.floor(current.money * 0.1)})</span>
@@ -366,14 +396,15 @@ export default function ActionPanel() {
                   <div className="flex gap-2">
                     <button
                       onClick={buyProperty}
-                      disabled={!canAfford}
+                      disabled={!canAfford || !canAct}
                       className="flex-1 bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 text-gray-900 font-bold py-2 px-3 rounded-lg transition-colors text-sm"
                     >
                       {canAfford ? 'Buy' : "Can't Afford"}
                     </button>
                     <button
                       onClick={declinePurchase}
-                      className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm"
+                      disabled={!canAct}
+                      className="flex-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm"
                     >
                       Skip
                     </button>
@@ -384,7 +415,8 @@ export default function ActionPanel() {
               {!pendingIncomeTax && (
                 <button
                   onClick={isDoublesTurn ? rollDice : endTurn}
-                  className={`font-bold py-2.5 px-4 rounded-lg transition-colors text-white ${
+                  disabled={!canAct}
+                  className={`font-bold py-2.5 px-4 rounded-lg transition-colors text-white disabled:bg-gray-700 disabled:text-gray-500 ${
                     isDoublesTurn
                       ? 'bg-yellow-600 hover:bg-yellow-500'
                       : 'bg-blue-600 hover:bg-blue-500'

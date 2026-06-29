@@ -1,7 +1,38 @@
 import { create } from 'zustand';
 import { BOARD_SPACES, COLOR_GROUPS, RAILROAD_IDS, UTILITY_IDS } from './boardData';
 import { CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from './cardData';
+import { supabase } from './supabase';
 import type { Player, SpaceState, GamePhase, PlayerColor, PlayerIcon, Card } from '@/types/game';
+
+// ─── Remote sync helpers ──────────────────────────────────────────────────────
+
+let _isSyncingFromRemote = false;
+export function setSyncingFromRemote(val: boolean) { _isSyncingFromRemote = val; }
+
+export function serializeGameState(state: GameStore) {
+  return {
+    players: state.players,
+    spaceStates: state.spaceStates,
+    currentPlayerIdx: state.currentPlayerIdx,
+    phase: state.phase,
+    lastRoll: state.lastRoll,
+    pendingPurchaseId: state.pendingPurchaseId,
+    drawnCard: state.drawnCard,
+    chanceCards: state.chanceCards,
+    chanceIdx: state.chanceIdx,
+    communityCards: state.communityCards,
+    communityIdx: state.communityIdx,
+    log: state.log,
+    doublesStreak: state.doublesStreak,
+    freeParkingPot: state.freeParkingPot,
+    pendingIncomeTax: state.pendingIncomeTax,
+    pendingBankruptcy: state.pendingBankruptcy,
+    pendingTrade: state.pendingTrade,
+    setupRolls: state.setupRolls,
+    setupRollCurrentIdx: state.setupRollCurrentIdx,
+    setupRollCandidateIds: state.setupRollCandidateIds,
+  };
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -192,9 +223,13 @@ interface GameStore {
   setupRolls: Record<string, number>;
   setupRollCurrentIdx: number;
   setupRollCandidateIds: string[];
+  roomId: string | null;
+  myPlayerId: string | null;
 
-  startGame: (setups: { name: string; color: PlayerColor; icon: PlayerIcon }[]) => void;
+  startGame: (setups: { name: string; color: PlayerColor; icon: PlayerIcon; id?: string }[]) => void;
   rollForFirst: () => void;
+  setRoomInfo: (roomId: string, myPlayerId: string) => void;
+  syncFromRemote: (serialized: ReturnType<typeof serializeGameState>) => void;
   rollDice: () => void;
   buyProperty: () => void;
   declinePurchase: () => void;
@@ -237,14 +272,24 @@ const BLANK_STATE = {
   setupRolls: {} as Record<string, number>,
   setupRollCurrentIdx: 0,
   setupRollCandidateIds: [] as string[],
+  roomId: null as string | null,
+  myPlayerId: null as string | null,
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...BLANK_STATE,
 
+  setRoomInfo: (roomId, myPlayerId) => set({ roomId, myPlayerId }),
+
+  syncFromRemote: (serialized) => {
+    _isSyncingFromRemote = true;
+    set({ ...serialized, gameStarted: true });
+    _isSyncingFromRemote = false;
+  },
+
   startGame: (setups) => {
     const players: Player[] = setups.map((s, i) => ({
-      id: `player-${i}`,
+      id: s.id ?? `player-${i}`,
       name: s.name,
       color: s.color,
       icon: s.icon,
@@ -998,3 +1043,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   resetGame: () => set(BLANK_STATE),
 }));
+
+// Auto-push game state to Supabase after every local change.
+// Skipped when _isSyncingFromRemote is true to prevent echo loops.
+useGameStore.subscribe((state) => {
+  if (_isSyncingFromRemote || !state.roomId || !state.gameStarted) return;
+  const serialized = serializeGameState(state);
+  supabase
+    .from('game_rooms')
+    .update({ game_state: serialized })
+    .eq('id', state.roomId)
+    .then(({ error }) => { if (error) console.error('[gameSync]', error); });
+});

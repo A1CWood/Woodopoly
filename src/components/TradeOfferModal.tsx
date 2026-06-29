@@ -53,15 +53,20 @@ function TradeSide({
 
 export default function TradeOfferModal() {
   const {
-    pendingTrade, players, currentPlayerIdx, phase,
+    pendingTrade, players, currentPlayerIdx, phase, myPlayerId,
     acceptTrade, declineTrade,
   } = useGameStore();
 
   const current = players[currentPlayerIdx];
+
+  // In multiplayer, only show to the actual recipient (by myPlayerId).
+  // In single-player (myPlayerId null), fall back to the current-turn player.
+  const recipientId = myPlayerId ?? current?.id;
+
   if (
     !pendingTrade ||
     !current ||
-    pendingTrade.toPlayerId !== current.id ||
+    pendingTrade.toPlayerId !== recipientId ||
     phase !== 'pre_roll'
   ) return null;
 

@@ -1,5 +1,5 @@
-import GameSetup from '@/components/GameSetup';
+import MultiplayerHome from '@/components/MultiplayerHome';
 
 export default function Home() {
-  return <GameSetup />;
+  return <MultiplayerHome />;
 }

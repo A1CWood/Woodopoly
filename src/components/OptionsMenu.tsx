@@ -3,15 +3,22 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGameStore } from '@/lib/gameStore';
+import { useLobbyStore } from '@/lib/lobbyStore';
 
 export default function OptionsMenu() {
   const [open, setOpen] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const resetGame = useGameStore((s) => s.resetGame);
+  const leaveRoom = useLobbyStore((s) => s.leaveRoom);
+  const roomId = useGameStore((s) => s.roomId);
   const router = useRouter();
 
-  const handleEndGame = () => {
-    resetGame();
+  const handleEndGame = async () => {
+    if (roomId) {
+      await leaveRoom(); // clean up Supabase room and unsubscribe
+    } else {
+      resetGame();
+    }
     router.push('/');
   };
 
