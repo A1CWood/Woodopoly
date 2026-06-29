@@ -75,7 +75,7 @@ export interface Player {
   getOutOfJailFreeCount: number;
 }
 
-export type GamePhase = 'pre_roll' | 'post_roll' | 'card' | 'game_over';
+export type GamePhase = 'setup_roll' | 'pre_roll' | 'post_roll' | 'card' | 'game_over';
 
 export type CardAction =
   | { type: 'advance_to'; position: number; collectGo: boolean }

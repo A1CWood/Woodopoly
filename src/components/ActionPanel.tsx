@@ -151,7 +151,8 @@ export default function ActionPanel() {
   const {
     players, currentPlayerIdx, phase, lastRoll, pendingPurchaseId,
     doublesStreak, pendingIncomeTax, pendingBankruptcy, spaceStates, pendingTrade,
-    rollDice, buyProperty, declinePurchase, endTurn, resetGame,
+    setupRolls, setupRollCurrentIdx, setupRollCandidateIds,
+    rollForFirst, rollDice, buyProperty, declinePurchase, endTurn, resetGame,
     payJailFine, useGetOutOfJailFree,
     payIncomeTaxFlat, payIncomeTaxPercent, declareBankruptcy,
   } = useGameStore();
@@ -172,7 +173,59 @@ export default function ActionPanel() {
 
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex flex-col gap-3">
-      {/* Current player header */}
+      {/* Setup roll phase — determine who goes first */}
+      {phase === 'setup_roll' && (() => {
+        const rollingId = setupRollCandidateIds[setupRollCurrentIdx];
+        const rollingPlayer = players.find((p) => p.id === rollingId);
+        return (
+          <div className="flex flex-col gap-3">
+            <div className="text-center text-green-400 text-xs font-bold uppercase tracking-wider">
+              Roll for First
+            </div>
+            <div className="flex flex-col gap-1">
+              {setupRollCandidateIds.map((id, i) => {
+                const p = players.find((pl) => pl.id === id)!;
+                const rolled = setupRolls[id];
+                const isCurrent = i === setupRollCurrentIdx;
+                return (
+                  <div
+                    key={id}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${isCurrent ? 'bg-gray-800' : ''}`}
+                  >
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                    <span className="text-sm text-white flex-1">{p.name}</span>
+                    {rolled !== undefined ? (
+                      <span className="text-green-400 font-mono font-bold text-sm">{rolled}</span>
+                    ) : isCurrent ? (
+                      <span className="text-yellow-400 text-xs italic">rolling…</span>
+                    ) : (
+                      <span className="text-gray-600 text-xs">—</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {lastRoll && (
+              <div className="flex items-center gap-2">
+                <DieFace value={lastRoll[0]} />
+                <DieFace value={lastRoll[1]} />
+                <span className="text-gray-400 text-sm">= {lastRoll[0] + lastRoll[1]}</span>
+              </div>
+            )}
+            {rollingPlayer && (
+              <button
+                onClick={rollForFirst}
+                className="bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors"
+              >
+                {rollingPlayer.name}: Roll 🎲
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Current player header (non-setup phases) */}
+      {phase !== 'setup_roll' && current && (
       <div className="flex items-center gap-2.5">
         <div className="w-4 h-4 rounded-full border-2 border-white shrink-0" style={{ backgroundColor: current.color }} />
         <div>
@@ -183,9 +236,10 @@ export default function ActionPanel() {
           <span className="ml-auto text-xs bg-red-900 text-red-200 px-2 py-0.5 rounded">IN JAIL</span>
         )}
       </div>
+      )}
 
       {/* Dice display */}
-      {lastRoll && (
+      {phase !== 'setup_roll' && lastRoll && (
         <div className="flex items-center gap-2">
           <DieFace value={lastRoll[0]} />
           <DieFace value={lastRoll[1]} />

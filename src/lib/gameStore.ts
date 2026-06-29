@@ -189,8 +189,12 @@ interface GameStore {
   pendingIncomeTax: boolean;
   pendingBankruptcy: boolean;
   pendingTrade: TradeOffer | null;
+  setupRolls: Record<string, number>;
+  setupRollCurrentIdx: number;
+  setupRollCandidateIds: string[];
 
   startGame: (setups: { name: string; color: PlayerColor; icon: PlayerIcon }[]) => void;
+  rollForFirst: () => void;
   rollDice: () => void;
   buyProperty: () => void;
   declinePurchase: () => void;
@@ -230,6 +234,9 @@ const BLANK_STATE = {
   pendingIncomeTax: false,
   pendingBankruptcy: false,
   pendingTrade: null as TradeOffer | null,
+  setupRolls: {} as Record<string, number>,
+  setupRollCurrentIdx: 0,
+  setupRollCandidateIds: [] as string[],
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -261,12 +268,67 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameStarted: true,
       players,
       spaceStates,
+      phase: 'setup_roll',
       chanceCards: shuffle(CHANCE_CARDS),
       communityCards: shuffle(COMMUNITY_CHEST_CARDS),
+      setupRolls: {},
+      setupRollCurrentIdx: 0,
+      setupRollCandidateIds: players.map((p) => p.id),
       log: [
         `Game started! ${players.map((p) => p.name).join(', ')} are playing.`,
-        `--- ${players[0].name}'s turn ---`,
+        `Roll to determine who goes first — highest roll starts.`,
       ],
+    });
+  },
+
+  rollForFirst: () => {
+    const state = get();
+    const { players, setupRolls, setupRollCandidateIds, setupRollCurrentIdx, log } = state;
+
+    const candidateId = setupRollCandidateIds[setupRollCurrentIdx];
+    const player = players.find((p) => p.id === candidateId)!;
+
+    const die1 = Math.ceil(Math.random() * 6);
+    const die2 = Math.ceil(Math.random() * 6);
+    const roll = die1 + die2;
+
+    const newRolls = { ...setupRolls, [candidateId]: roll };
+    const newLog = [...log, `${player.name} rolled ${die1} + ${die2} = ${roll}.`];
+    const nextIdx = setupRollCurrentIdx + 1;
+
+    if (nextIdx < setupRollCandidateIds.length) {
+      set({ setupRolls: newRolls, setupRollCurrentIdx: nextIdx, lastRoll: [die1, die2], log: newLog });
+      return;
+    }
+
+    const maxRoll = Math.max(...setupRollCandidateIds.map((id) => newRolls[id]));
+    const winners = setupRollCandidateIds.filter((id) => newRolls[id] === maxRoll);
+
+    if (winners.length > 1) {
+      const tiedNames = winners.map((id) => players.find((p) => p.id === id)!.name).join(', ');
+      newLog.push(`Tie at ${maxRoll}! ${tiedNames} roll again.`);
+      set({
+        setupRolls: {},
+        setupRollCurrentIdx: 0,
+        setupRollCandidateIds: winners,
+        lastRoll: [die1, die2],
+        log: newLog,
+      });
+      return;
+    }
+
+    const winnerId = winners[0];
+    const winnerIdx = players.findIndex((p) => p.id === winnerId);
+    newLog.push(`${players[winnerIdx].name} goes first!`);
+    newLog.push(`--- ${players[winnerIdx].name}'s turn ---`);
+    set({
+      setupRolls: {},
+      setupRollCurrentIdx: 0,
+      setupRollCandidateIds: [],
+      currentPlayerIdx: winnerIdx,
+      phase: 'pre_roll',
+      lastRoll: [die1, die2],
+      log: newLog,
     });
   },
 
