@@ -132,9 +132,6 @@ export default function GamePage() {
 
   if (!gameStarted || players.length === 0) return null;
 
-  const bottomPlayers = players.slice(0, 2);
-  const topPlayers = players.slice(2);
-
   return (
     <div className="fixed inset-0 bg-gray-950 overflow-hidden">
       {/* Full-screen overlays */}
@@ -165,25 +162,11 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* Player hands overlaid on board (z-10, pointer-events pass through gaps) */}
-      {topPlayers.length > 0 && (
-        <div
-          className="absolute top-2 left-2 flex gap-2 flex-wrap z-10 pointer-events-none"
-          style={{ maxWidth: `calc(100vw - ${PANEL_W + 16}px)` }}
-        >
-          {topPlayers.map((p) => (
-            <div key={p.id} className="pointer-events-auto">
-              <PlayerHand player={p} />
-            </div>
-          ))}
-        </div>
-      )}
-
+      {/* Player hands stacked along the left edge (z-10, pointer-events pass through gaps) */}
       <div
-        className="absolute bottom-8 left-2 flex gap-2 flex-wrap z-10 pointer-events-none"
-        style={{ maxWidth: `calc(100vw - ${PANEL_W + 16}px)` }}
+        className="absolute top-2 left-2 bottom-2 flex flex-col gap-3 z-10 pointer-events-none overflow-y-auto"
       >
-        {bottomPlayers.map((p) => (
+        {players.map((p) => (
           <div key={p.id} className="pointer-events-auto">
             <PlayerHand player={p} />
           </div>

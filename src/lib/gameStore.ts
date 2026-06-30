@@ -876,7 +876,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!ss.isMortgaged) return;
 
     const mortgageValue = Math.floor((space.price ?? 0) / 2);
-    const unmortgageCost = Math.ceil(mortgageValue * 1.1);
+    const unmortgageCost = mortgageValue;
     if (player.money < unmortgageCost) return;
 
     const updatedPlayers = players.map((p, i) =>

@@ -21,30 +21,30 @@ export default function PropertyCard({ space, spaceState, compact = false }: Pro
     return (
       <div
         className="relative rounded border border-gray-600 flex flex-col overflow-hidden shrink-0"
-        style={{ width: 52, height: 72, backgroundColor: '#fefce8' }}
+        style={{ width: 66, height: 92, backgroundColor: '#fefce8' }}
         title={`${space.name}${houses > 0 ? ` (${houses === 5 ? 'Hotel' : `${houses}H`})` : ''}`}
       >
         {/* Color band */}
-        <div className="w-full shrink-0" style={{ height: 14, backgroundColor: color }} />
+        <div className="w-full shrink-0" style={{ height: 18, backgroundColor: color }} />
         {/* Name */}
         <div className="flex-1 flex flex-col items-center justify-center px-0.5 gap-0.5">
-          <span className="text-[6px] font-bold text-center leading-tight text-gray-800 break-words">
+          <span className="text-[7px] font-bold text-center leading-tight text-gray-800 break-words">
             {isRailroad ? '🚂' : isUtility ? '⚙️' : ''} {space.name}
           </span>
           {space.price && (
-            <span className="text-[6px] text-gray-500">${space.price}</span>
+            <span className="text-[7px] text-gray-500">${space.price}</span>
           )}
         </div>
         {/* Houses indicator */}
         {houses > 0 && (
-          <div className="text-[7px] text-center pb-0.5 leading-none">
+          <div className="text-[8px] text-center pb-0.5 leading-none">
             {houses === 5 ? '🏨' : '🏠'.repeat(houses)}
           </div>
         )}
         {/* Mortgaged overlay */}
         {spaceState.isMortgaged && (
           <div className="absolute inset-0 bg-gray-500/70 flex items-center justify-center">
-            <span className="text-[7px] text-white font-bold rotate-[-15deg]">MORT.</span>
+            <span className="text-[8px] text-white font-bold rotate-[-15deg]">MORT.</span>
           </div>
         )}
       </div>

@@ -65,7 +65,7 @@ function formatActionSummary(action: { type: string; [key: string]: unknown }): 
     case 'go_back': return `Go back ${action.spaces} spaces`;
     case 'advance_to': return `Advance to board space ${action.position}`;
     case 'advance_to_nearest': return `Advance to nearest ${action.propertyType}`;
-    case 'repairs': return `Pay $${action.houseAmount}/cabin and $${action.hotelAmount}/lodge`;
+    case 'repairs': return `Pay $${action.houseAmount}/house and $${action.hotelAmount}/hotel`;
     default: return '';
   }
 }
