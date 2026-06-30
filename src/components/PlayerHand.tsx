@@ -42,6 +42,27 @@ export default function PlayerHand({ player }: Props) {
   const [infoSpaceId, setInfoSpaceId] = useState<number | null>(null);
 
   const ownedSpaces = BOARD_SPACES.filter((s) => player.propertyIds.includes(s.id));
+
+  // Group properties so multiples of the same color / railroads / utilities fan out as a stack.
+  const STACK_PEEK = 34; // px of each buried card left visible (color band + name label)
+  const groups: { key: string; spaces: typeof ownedSpaces }[] = [];
+  const groupIndexByKey: Record<string, number> = {};
+  ownedSpaces.forEach((space) => {
+    const groupKey =
+      space.type === 'railroad'
+        ? 'railroad'
+        : space.type === 'utility'
+        ? 'utility'
+        : space.colorGroup
+        ? `color-${space.colorGroup}`
+        : `single-${space.id}`;
+    if (groupIndexByKey[groupKey] === undefined) {
+      groupIndexByKey[groupKey] = groups.length;
+      groups.push({ key: groupKey, spaces: [] });
+    }
+    groups[groupIndexByKey[groupKey]].spaces.push(space);
+  });
+
   const infoSpace = infoSpaceId !== null ? BOARD_SPACES[infoSpaceId] : null;
   const infoSpaceState = infoSpaceId !== null ? spaceStates[infoSpaceId] : null;
   const infoOwner = infoSpaceState?.ownerId
@@ -86,76 +107,101 @@ export default function PlayerHand({ player }: Props) {
         {player.getOutOfJailFreeCount > 0 && (
           <GetOutOfJailCard count={player.getOutOfJailFreeCount} />
         )}
-        {ownedSpaces.length > 0 ? (
-          ownedSpaces.map((space) => {
-            const ss = spaceStates[space.id] ?? { ownerId: null, isMortgaged: false, houses: 0 };
-            const price = space.price ?? 0;
-            const mortgageValue = Math.floor(price / 2);
-            const unmortgageCost = mortgageValue;
+        {groups.length > 0 ? (
+          groups.map((group) => (
+            <div
+              key={group.key}
+              className="relative shrink-0"
+              style={{ width: 66, height: 92 + (group.spaces.length - 1) * STACK_PEEK }}
+            >
+              {group.spaces.map((space, i) => {
+                const ss = spaceStates[space.id] ?? { ownerId: null, isMortgaged: false, houses: 0 };
+                const price = space.price ?? 0;
+                const mortgageValue = Math.floor(price / 2);
+                const unmortgageCost = mortgageValue;
 
-            // Can't mortgage if any property in the group has houses
-            const hasHousesInGroup = space.colorGroup
-              ? COLOR_GROUPS[space.colorGroup as ColorGroup].some(
-                  (id) => (spaceStates[id]?.houses ?? 0) > 0
-                )
-              : false;
+                // Can't mortgage if any property in the group has houses
+                const hasHousesInGroup = space.colorGroup
+                  ? COLOR_GROUPS[space.colorGroup as ColorGroup].some(
+                      (id) => (spaceStates[id]?.houses ?? 0) > 0
+                    )
+                  : false;
 
-            const showOverlay = canInteract && mortgageValue > 0;
+                const showOverlay = canInteract && mortgageValue > 0;
 
-            return (
-              <div key={space.id} className="relative group shrink-0">
-                <PropertyCard space={space} spaceState={ss} compact />
+                return (
+                  <div
+                    key={space.id}
+                    className="absolute left-0 group"
+                    style={{ top: i * STACK_PEEK, zIndex: i + 1 }}
+                  >
+                    <PropertyCard space={space} spaceState={ss} compact />
 
-                {/* Info button — available for any player's cards, any time */}
-                <button
-                  onClick={() => setInfoSpaceId(space.id)}
-                  title="Property info"
-                  className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-gray-900/80 hover:bg-gray-700 text-white text-[9px] font-bold flex items-center justify-center z-30 leading-none"
-                >
-                  i
-                </button>
-
-                {showOverlay && (
-                  <div className="absolute inset-0 rounded bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 pointer-events-none group-hover:pointer-events-auto z-20">
-                    {!ss.isMortgaged ? (
-                      <>
-                        <span className="text-[7px] text-gray-300 leading-none">Mortgage</span>
-                        <span className="text-[9px] text-green-400 font-bold leading-none">
-                          +${mortgageValue}
+                    {/* For buried cards, the rest of the card is covered by the one in front —
+                        label the visible sliver so the property name is still readable. */}
+                    {i < group.spaces.length - 1 && (
+                      <div
+                        className="absolute left-0 right-0 px-1 flex items-center justify-center pointer-events-none"
+                        style={{ top: 18, height: STACK_PEEK - 18, backgroundColor: '#fefce8' }}
+                      >
+                        <span className="text-[6.5px] font-bold text-gray-800 text-center leading-tight truncate w-full">
+                          {space.name}
                         </span>
-                        {hasHousesInGroup ? (
-                          <span className="text-[6px] text-yellow-400 text-center px-1 leading-tight">
-                            Sell houses first
-                          </span>
+                      </div>
+                    )}
+
+                    {/* Info button — available for any player's cards, any time */}
+                    <button
+                      onClick={() => setInfoSpaceId(space.id)}
+                      title="Property info"
+                      className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-gray-900/80 hover:bg-gray-700 text-white text-[9px] font-bold flex items-center justify-center z-30 leading-none"
+                    >
+                      i
+                    </button>
+
+                    {showOverlay && (
+                      <div className="absolute inset-0 rounded bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-start pt-1.5 gap-1 pointer-events-none group-hover:pointer-events-auto z-20">
+                        {!ss.isMortgaged ? (
+                          <>
+                            <span className="text-[7px] text-gray-300 leading-none">Mortgage</span>
+                            <span className="text-[9px] text-green-400 font-bold leading-none">
+                              +${mortgageValue}
+                            </span>
+                            {hasHousesInGroup ? (
+                              <span className="text-[6px] text-yellow-400 text-center px-1 leading-tight">
+                                Sell houses first
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => mortgageProperty(space.id)}
+                                className="mt-0.5 bg-green-700 hover:bg-green-600 active:bg-green-800 text-white text-[7px] font-bold px-2 py-0.5 rounded"
+                              >
+                                Mortgage
+                              </button>
+                            )}
+                          </>
                         ) : (
-                          <button
-                            onClick={() => mortgageProperty(space.id)}
-                            className="mt-0.5 bg-green-700 hover:bg-green-600 active:bg-green-800 text-white text-[7px] font-bold px-2 py-0.5 rounded"
-                          >
-                            Mortgage
-                          </button>
+                          <>
+                            <span className="text-[7px] text-gray-300 leading-none">Unmortgage</span>
+                            <span className="text-[9px] text-yellow-400 font-bold leading-none">
+                              −${unmortgageCost}
+                            </span>
+                            <button
+                              onClick={() => unmortgageProperty(space.id)}
+                              disabled={player.money < unmortgageCost}
+                              className="mt-0.5 bg-yellow-700 hover:bg-yellow-600 active:bg-yellow-800 disabled:bg-gray-700 disabled:text-gray-500 text-white text-[7px] font-bold px-2 py-0.5 rounded"
+                            >
+                              Lift
+                            </button>
+                          </>
                         )}
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[7px] text-gray-300 leading-none">Unmortgage</span>
-                        <span className="text-[9px] text-yellow-400 font-bold leading-none">
-                          −${unmortgageCost}
-                        </span>
-                        <button
-                          onClick={() => unmortgageProperty(space.id)}
-                          disabled={player.money < unmortgageCost}
-                          className="mt-0.5 bg-yellow-700 hover:bg-yellow-600 active:bg-yellow-800 disabled:bg-gray-700 disabled:text-gray-500 text-white text-[7px] font-bold px-2 py-0.5 rounded"
-                        >
-                          Lift
-                        </button>
-                      </>
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            );
-          })
+                );
+              })}
+            </div>
+          ))
         ) : (
           <span className="text-gray-600 text-xs italic self-center whitespace-nowrap">
             No properties yet

@@ -12,6 +12,7 @@ import PlayerHand from '@/components/PlayerHand';
 import CardPopup from '@/components/CardPopup';
 import OptionsMenu from '@/components/OptionsMenu';
 import TradeOfferModal from '@/components/TradeOfferModal';
+import AuctionModal from '@/components/AuctionModal';
 
 const PANEL_W = 268;
 const BOARD_PX = 620;
@@ -137,6 +138,7 @@ export default function GamePage() {
       {/* Full-screen overlays */}
       <CardPopup />
       <TradeOfferModal />
+      <AuctionModal />
       <OptionsMenu />
 
       {/* Pannable / zoomable board layer (z-0) */}

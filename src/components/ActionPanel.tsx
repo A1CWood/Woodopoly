@@ -406,7 +406,7 @@ export default function ActionPanel() {
                       disabled={!canAct}
                       className="flex-1 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm"
                     >
-                      Skip
+                      Auction it
                     </button>
                   </div>
                 </div>
