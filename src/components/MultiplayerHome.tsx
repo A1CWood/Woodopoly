@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLobbyStore } from '@/lib/lobbyStore';
 import { PLAYER_COLORS, PLAYER_ICONS, ICON_EMOJI } from '@/types/game';
 import type { PlayerColor, PlayerIcon } from '@/types/game';
+import GameSetup from './GameSetup';
 
 const COLOR_LABELS: Record<PlayerColor, string> = {
   '#EF4444': 'Red',
@@ -15,7 +16,7 @@ const COLOR_LABELS: Record<PlayerColor, string> = {
   '#F97316': 'Orange',
 };
 
-type View = 'choice' | 'host-setup' | 'join-setup' | 'waiting';
+type View = 'choice' | 'host-setup' | 'join-setup' | 'waiting' | 'local';
 
 function PlayerSetupFields({
   name, setName,
@@ -157,10 +158,21 @@ export default function MultiplayerHome() {
             >
               Join a Game
             </button>
+            <button
+              onClick={() => setView('local')}
+              className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl text-lg transition-colors"
+            >
+              Local Game
+            </button>
           </div>
         </div>
       </div>
     );
+  }
+
+  // ── Local Game (single device, no host/remote) ───────────────────────────
+  if (view === 'local') {
+    return <GameSetup onBack={() => setView('choice')} />;
   }
 
   // ── Host Setup ─────────────────────────────────────────────────────────────

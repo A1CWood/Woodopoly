@@ -16,7 +16,7 @@ const COLOR_LABELS: Record<PlayerColor, string> = {
   '#F97316': 'Orange',
 };
 
-export default function GameSetup() {
+export default function GameSetup({ onBack }: { onBack?: () => void }) {
   const [playerCount, setPlayerCount] = useState(2);
   const [names, setNames] = useState<string[]>([...DEFAULT_NAMES]);
   const [colors, setColors] = useState<PlayerColor[]>([...PLAYER_COLORS]);
@@ -59,7 +59,15 @@ export default function GameSetup() {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 w-full max-w-lg shadow-2xl">
         {/* Title */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="absolute left-0 top-1 text-gray-500 hover:text-gray-300 text-xl leading-none"
+            >
+              ←
+            </button>
+          )}
           <h1 className="text-4xl font-black text-green-400 tracking-widest">WOODOPOLY</h1>
           <p className="text-gray-500 text-sm mt-1">The Board Game</p>
         </div>

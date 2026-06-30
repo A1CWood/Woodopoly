@@ -190,7 +190,7 @@ export const useLobbyStore = create<LobbyStore>((set, get) => ({
   },
 
   startGame: async () => {
-    const { roomId, lobbyPlayers, isHost } = get();
+    const { roomId, myPlayerId, lobbyPlayers, isHost } = get();
     if (!roomId || !isHost || lobbyPlayers.length < 2) return;
 
     const setups = lobbyPlayers.map((p) => ({
@@ -200,9 +200,13 @@ export const useLobbyStore = create<LobbyStore>((set, get) => ({
       icon: p.icon,
     }));
 
-    // Suppress auto-push; we'll write game_state + status in one atomic call
+    // Suppress auto-push; we'll write game_state + status in one atomic call.
+    // gameStore.startGame() resets the whole store (including roomId/myPlayerId)
+    // back to blank, so they must be restored before any further local action —
+    // otherwise the host loses turn-gating and stops syncing to Supabase.
     setSyncingFromRemote(true);
     useGameStore.getState().startGame(setups);
+    useGameStore.getState().setRoomInfo(roomId, myPlayerId);
     setSyncingFromRemote(false);
 
     const gameState = serializeGameState(useGameStore.getState());
